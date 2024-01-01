@@ -20,7 +20,7 @@ def run():
     # /schedule
     @bot.command(
         brief="Collating available days for raid attendance",
-        description="Bot sends a message into a location where command is called and tags @everyone, asking to react for available days to be scheduled for raids",
+        description="Bot sends a message into a location where command is called and tags @everyone, asking to react for available days to be scheduled for raids.\nThis is generally recommended to be run in threads to not clog chats and ping people in excess since it uses @everyone.",
     )
     async def schedule(ctx):
         print(
@@ -35,7 +35,7 @@ def run():
 
     @bot.command(
         brief="Display overall schedule of all members who reacted",
-        description="Bot sends an embed with all the members who reacted to the days showing when they're available and not.",
+        description="Bot sends an embed with all the members who reacted to the days showing when they're available and not.\nThis command also only generates the latest called schedule in the channel.",
     )
     async def gen(ctx):
         print(
