@@ -14,20 +14,24 @@ def run():
         print(bot.user)
         print(bot.user.id)
         print("-"*8)
-            
-    @bot.command()
+
+
+    #/schedule
+    @bot.command(brief="Collating available days for raid attendance", description="Bot sends a message into a location where command is called and tags @everyone, asking to react for available days to be scheduled for raids")
     async def schedule(ctx):
         print("Command /schedule has been called")
+        await ctx.message.delete()
+
         emojis = settings.emojis
-        msg = await ctx.send("@everyone, please react with your available days!")
-        await ctx.message.delete()        
+        msg = await ctx.send("@everyone, please react with your available days!")     
         for emoji in emojis:
             await msg.add_reaction(emoji)
 
-    @bot.command()
+    @bot.command(brief="Display overall schedule of all members who reacted", description="Bot sends an embed with all the members who reacted to the days showing when they're available and not.")
     async def gen(ctx):
         print("Command /gen has been called")
         await ctx.message.delete()
+
         async for message in ctx.channel.history(oldest_first=True):
             # print(message)
             if message.author.bot:
@@ -52,11 +56,6 @@ def run():
 
                     #init table
                     table = []
-    
-                    # days = [max_len*" "] + [day for day in react_dict.keys()]
-                    # emojis = settings.emojis
-                    # days = ["-------- "] + [emoji for emoji in emojis]
-                    # table.append(days)
 
                     headers = settings.headers
                     table.append(headers)
@@ -64,21 +63,8 @@ def run():
                     for item in conv.items():
                         table.append([item[0]]+list(item[1]))
                     
-                    # to_send = ""
-                    # for row in table:
-                    #     print(" ".join(row))
-                    #     to_send += "### "+"\t".join(row)+"\n"
-                    #     if row != table[-1]:
-                    #         to_send += "-"*50+"\n"
-                    # print(to_send)
-                    # await ctx.send(to_send)
-                        
-                    #Use this space to attempt converting the table into a pd df
-                    #then field -> 
-                    # print(table)
                     import pandas as pd
                     df = pd.DataFrame(table[1:], columns = table[0])
-                    # print(df)
 
                     for header in headers:
                         print(header, list(df[header]))
