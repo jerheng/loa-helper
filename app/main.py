@@ -14,9 +14,10 @@ def run():
 
     @bot.event
     async def on_ready():
-        print(bot.user)
-        print(bot.user.id)
-        print("-" * 8)
+        print("-" * 15)
+        print(f"Bot is ready!")
+        print(bot.user, bot.user.id)
+        print("-" * 15)
 
     # /schedule
     @bot.command(
@@ -31,7 +32,7 @@ def run():
         # Check if the argument provided is a valid role, otherwise tag everyone
         roles = await get_roles(ctx)
         if arg.startswith("<@&") and arg.endswith(">"):
-            arg_id = arg[3:-1]
+            arg_id = arg[3:-1].strip()
             # print(arg_id)
             for role in roles:
                 if str(role.id) == arg_id:
@@ -78,7 +79,7 @@ def run():
             if message.author.bot:
                 # print(message.content)
                 if message.content.endswith("please react with your available days!"):
-                    mentioned_role = str(message.content).split()[0][:-1]
+                    mentioned_role = str(message.content).strip().split()[0][:-1]
                     if mentioned_role == "@everyone":
                         mentioned_role = rev_roles_dict[mentioned_role]
                     else:
