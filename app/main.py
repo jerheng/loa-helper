@@ -17,6 +17,7 @@ def run():
         print("-" * 15)
         print(f"Bot is ready!")
         print(bot.user, bot.user.id)
+        print(f"Bot is in {len(list(bot.guilsd))} guilds!: {list(bot.guilds)}")
         print("-" * 15)
 
     # /schedule
@@ -103,7 +104,7 @@ def run():
                     user_set, react_dict = await collate_table(message)
 
                     # now do a diff check for user_set and role_members
-                    remind_members = []
+                    remind_members = [] # remind_members is initialized here to check if all members in user_set are in the pinged role, otherwise collect members who have yet to react.
                     for member in role_members.keys():
                         if member not in user_set:
                             if role_members[member] != str(bot.user.id):
@@ -111,19 +112,7 @@ def run():
                     print(f"Reminding the following members: {remind_members}")
 
                     # Convert react_dict into a user that converts the reactions into green squares and non-reactions into red-squares
-                    conv = {}
-                    for user in user_set:
-                        for key in react_dict.keys():
-                            if user not in conv:
-                                if user not in react_dict[key]:
-                                    conv[user] = ["🟥"]
-                                else:
-                                    conv[user] = ["🟩"]
-                            else:
-                                if user not in react_dict[key]:
-                                    conv[user].append("🟥")
-                                else:
-                                    conv[user].append("🟩")
+                    conv = conv_dict(user_set, react_dict)
 
                     # initialize table
                     table = []
@@ -132,15 +121,18 @@ def run():
                     for item in conv.items():
                         table.append([item[0]] + list(item[1]))
 
-                    # convert into dataframe to easily pickup column data.
+                    # convert table into dataframe to easily pickup column data.
                     df = pd.DataFrame(table[1:], columns=table[0])
 
+                    # print for debugging
                     for header in headers:
                         print(header, list(df[header]))
 
                     server_emojis = list(react_dict.keys())
 
+                    # building embeds
                     embed = discord.Embed(title="Schedule")
+
                     embed.add_field(
                         name=headers[0],
                         value="\n".join(list(df[headers[0]])),
@@ -153,6 +145,7 @@ def run():
                         inline=True,
                     )
 
+                    # Check if all members have reacted, otherwise build remind_members to then ping in the message with the embed.
                     if remind_members != []:
                         for i in range(len(remind_members)):
                             remind_members[i] = f"<@{remind_members[i]}>"
@@ -161,9 +154,9 @@ def run():
                         reminder = ""
 
                     if reminder == "":
-                        await ctx.send(embed=embed)
+                        await ctx.send(embed=embed) # no members to remind, embed only
                     else:
-                        await ctx.send(reminder, embed=embed)
+                        await ctx.send(reminder, embed=embed) # reminder + embed
                 else:
                     pass  # Nothing should happen here
             else:
@@ -209,6 +202,22 @@ def run():
 
     bot.run(settings.DISCORD_API_SECRET)
 
+    "Helper function to convert react_dict into {usernames:[red/green square]}"
+    def conv_dict(user_set, react_dict):
+        conv = {}
+        for user in user_set:
+            for key in react_dict.keys():
+                if user not in conv:
+                    if user not in react_dict[key]:
+                        conv[user] = ["🟥"]
+                    else:
+                        conv[user] = ["🟩"]
+                else:
+                    if user not in react_dict[key]:
+                        conv[user].append("🟥")
+                    else:
+                        conv[user].append("🟩")
+        return conv
 
 if __name__ == "__main__":
     run()
