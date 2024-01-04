@@ -17,7 +17,7 @@ def run():
         print("-" * 15)
         print(f"Bot is ready!")
         print(bot.user, bot.user.id)
-        print(f"Bot is in {len(list(bot.guilsd))} guilds!: {list(bot.guilds)}")
+        print(f"Bot is in {len(list(bot.guilds))} guilds!: {list(bot.guilds)}")
         print("-" * 15)
 
     # /schedule
@@ -121,6 +121,12 @@ def run():
                     for item in conv.items():
                         table.append([item[0]] + list(item[1]))
 
+                    # Get count of users who reacted per emote
+                    # tmp = ["Total"] + [str(len(react_dict[key])) for key in react_dict.keys()]
+                    # table.append(tmp)
+
+                    print(table)
+
                     # convert table into dataframe to easily pickup column data.
                     df = pd.DataFrame(table[1:], columns=table[0])
 
@@ -140,10 +146,16 @@ def run():
                     )
 
                     embed.add_field(
-                        name=" | ".join(server_emojis),
-                        value="\n".join(" | ".join(row[1:]) for row in table[1:]),
+                        name="\u2800".join(server_emojis),
+                        value="\n".join("\u2800".join(row[1:]) for row in table[1:]),
                         inline=True,
                     )
+
+                    # embed.add_field(
+                    #     name="",
+                    #     value="\n".join(f"{key}: {len(react_dict[key])}/{len(user_set)}" for key in react_dict.keys()),
+                    #     inline=False
+                    # )
 
                     # Check if all members have reacted, otherwise build remind_members to then ping in the message with the embed.
                     if remind_members != []:
@@ -200,8 +212,6 @@ def run():
         # roles = {role.id:role.name for role in roles}
         return roles
 
-    bot.run(settings.DISCORD_API_SECRET)
-
     "Helper function to convert react_dict into {usernames:[red/green square]}"
     def conv_dict(user_set, react_dict):
         conv = {}
@@ -218,6 +228,8 @@ def run():
                     else:
                         conv[user].append("🟩")
         return conv
+
+    bot.run(settings.DISCORD_API_SECRET)
 
 if __name__ == "__main__":
     run()
