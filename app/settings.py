@@ -6,6 +6,7 @@ load_dotenv()
 DISCORD_API_SECRET = os.getenv("DISCORD_API_TOKEN")
 
 # Get emoji id from \:emojiname: and it'll appear accordingly
+# Edit the emojis to follow the ones on your server for more stability and control!
 emojis = [
     "<:wed:1190936535231635486>",
     "<:thu:1190936547328008203>",
