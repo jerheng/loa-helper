@@ -25,7 +25,7 @@ git clone https://github.com/jerheng/loa-helper/tree/main
 pip3 install -r requirements.txt
 ```
 
-3. Updating .settings with your secret key and emotes
+3. Updating .env with your secret key and settings.py with your respective emote id's
 * I recommend deploying the bot to a test server belonging to you first, then uploading the emoji assets to the server and reanming them, obtaining the emoji ids and updating .settings accordingly!
 * The way to get your emoji id is to insert \ before your emoji (e.g \:helloworld_emoji:), then it'll output in the format of <:helloworld_emoji_id>, which is what you want to replace .settings with.
 
