@@ -137,18 +137,18 @@ def run():
                     server_emojis = list(react_dict.keys())
 
                     # building embeds
-                    embed = discord.Embed(title="Schedule")
+                    embed = discord.Embed(title=f"Schedule {message.jump_url}")
 
                     embed.add_field(
                         name=headers[0],
                         value="\n".join(list(df[headers[0]])),
-                        inline=True,
+                        inline=True
                     )
 
                     embed.add_field(
                         name="\u2800".join(server_emojis),
                         value="\n".join("\u2800".join(row[1:]) for row in table[1:]),
-                        inline=True,
+                        inline=True
                     )
 
                     # embed.add_field(
@@ -230,6 +230,7 @@ def run():
         return conv
 
     bot.run(settings.DISCORD_API_SECRET)
+    bot.on_disconnect(bot.connect(reconnect=True))
 
 if __name__ == "__main__":
     run()

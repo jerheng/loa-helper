@@ -1,6 +1,6 @@
 # Dockerfile, Image, Container
 
-FROM python:3.8.5
+FROM python:3.8.18-slim
 WORKDIR /app
 COPY requirements.txt .
 COPY ./app ./app
