@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  myapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loa-helper
+    restart: always
