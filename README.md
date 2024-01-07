@@ -33,8 +33,7 @@ pip3 install -r requirements.txt
 1. Docker deployment
 Recommended if you experience issues with 2. to avoid the need to replicate my development environment!
 ```
-docker build -t loa-helper .
-docker run loa-helper
+docker compose up
 ```
 
 2. Python3 local deployment
