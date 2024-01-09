@@ -97,7 +97,6 @@ def run():
                             if str(role.id) == mentioned_role:
                                 for member in role.members:
                                     role_members[str(member.name)] = str(member.id)
-                            break
                     # print(role_members)
 
                     flag = True  # Latest schedule message has been found
