@@ -73,13 +73,15 @@ def run():
 
         flag = False  # Flag to keep track of whether the message has been found.
 
-        # Set oldest_first = False so that we only keep track of the latest schedule collated
-        async for message in ctx.channel.history(oldest_first=False):
+        # Set oldest_first = False so that we only keep track of the latest schedule collate
+        print("Searching messages now:")
+        async for message in ctx.channel.history(oldest_first=False, limit = 500):
             # print(message)
             # Delete command initialization message
             if message.author.bot:
                 # print(message.content)
                 if message.content.endswith("please react with your available days!"):
+                    print("Message found")
                     mentioned_role = str(message.content).strip().split()[0][:-1]
                     if mentioned_role == "@everyone":
                         mentioned_role = rev_roles_dict[mentioned_role]
@@ -87,10 +89,16 @@ def run():
                         mentioned_role = mentioned_role[3:-1]
                     print(f"{roles_dict[mentioned_role]} has been mentioned!")
 
+                    # print("Channel Name:", str(ctx.channel), str(ctx.channel.id), str(ctx.channel.type))
+                    # if "thread" in str(ctx.channel.type):
+                    #     print("Parent: ",ctx.channel.parent, ctx.channel.parent.id)
+                    #     parent_members = ctx.channel.parent.members
+                    #     print(parent_members)
+
                     role_members = {}
-                    if mentioned_role == "everyone":
-                        # use channel members
-                        for member in ctx.channel.guild.members:
+                    print(f"Mentioned role: '{mentioned_role}'")
+                    if roles_dict[mentioned_role] == "@everyone":
+                        for member in ctx.channel.parent.members:
                             role_members[str(member.name)] = str(member.id)
                     else:
                         for role in roles:
@@ -168,7 +176,8 @@ def run():
                     if reminder == "":
                         await ctx.send(embed=embed) # no members to remind, embed only
                     else:
-                        await ctx.send(reminder, embed=embed) # reminder + embed
+                        # await ctx.send(reminder, embed=embed) # reminder + embed
+                        await ctx.send(reminder, embed=embed)
                 else:
                     pass  # Nothing should happen here
             else:
