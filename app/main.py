@@ -74,7 +74,7 @@ def run():
         flag = False  # Flag to keep track of whether the message has been found.
 
         # Set oldest_first = False so that we only keep track of the latest schedule collated
-        async for message in ctx.channel.history(oldest_first=False):
+        async for message in ctx.channel.history(oldest_first=True):
             # print(message)
             # Delete command initialization message
             if message.author.bot:
