@@ -40,15 +40,18 @@ def run():
                     break
         else:
             arg = "@everyone"
-
         await ctx.message.delete()
-        # Check if arg is a valid prefix for a role, otherwise make sure it is set to everyone. It has to be a valid role.
 
+        # Check if arg is a valid prefix for a role, otherwise make sure it is set to everyone. It has to be a valid role.
         emojis = settings.emojis
         msg = await ctx.send(f"{arg}, please react with your available days!")
         for emoji in emojis:
             await msg.add_reaction(emoji)
         await msg.pin(reason=None)
+
+        print(f"Role mentioned is: {arg}")
+        #shadow ping members to add them to the thread
+        await add_to_thread(ctx, arg)
 
     # /gen
     @bot.command(
@@ -83,29 +86,7 @@ def run():
                 if message.content.endswith("please react with your available days!"):
                     print("Message found")
                     mentioned_role = str(message.content).strip().split()[0][:-1]
-                    if mentioned_role == "@everyone":
-                        mentioned_role = rev_roles_dict[mentioned_role]
-                    else:
-                        mentioned_role = mentioned_role[3:-1]
-                    print(f"{roles_dict[mentioned_role]} has been mentioned!")
-
-                    # print("Channel Name:", str(ctx.channel), str(ctx.channel.id), str(ctx.channel.type))
-                    # if "thread" in str(ctx.channel.type):
-                    #     print("Parent: ",ctx.channel.parent, ctx.channel.parent.id)
-                    #     parent_members = ctx.channel.parent.members
-                    #     print(parent_members)
-
-                    role_members = {}
-                    print(f"Mentioned role: '{mentioned_role}'")
-                    if roles_dict[mentioned_role] == "@everyone":
-                        for member in ctx.channel.parent.members:
-                            role_members[str(member.name)] = str(member.id)
-                    else:
-                        for role in roles:
-                            if str(role.id) == mentioned_role:
-                                for member in role.members:
-                                    role_members[str(member.name)] = str(member.id)
-                    # print(role_members)
+                    role_members = await get_members(ctx, mentioned_role)
 
                     flag = True  # Latest schedule message has been found
 
@@ -187,6 +168,10 @@ def run():
             ):  # Latest message containing schedule has been found, break from the loop.
                 break
 
+
+    "Bunch of helper functions below...."
+
+
     "Helper function to collect reactions from a prior schedule message."
     async def collate_table(msg):
         # There is an edge case that may cause a bug where if the bot's reactions are removed, it will not be able to run due to dimensionality failure
@@ -213,6 +198,42 @@ def run():
         print(total_users, react_dict)
         return (total_users, react_dict)
         # react_dict should have the structure of {emoji_id1:[list of usernames], emoji_id2:[list of usernames]}
+
+    "Helper function to get all members belonging to role in the mentioned channel"
+    async def get_members(ctx, mentioned_role):
+        roles = await get_roles(ctx)
+        roles_dict = {}
+        rev_roles_dict = {}
+        for role in roles:
+            roles_dict[str(role.id)] = str(role.name)
+            rev_roles_dict[str(role.name)] = str(role.id)
+        if mentioned_role == "@everyone":
+            mentioned_role = rev_roles_dict[mentioned_role]
+        else:
+            mentioned_role = mentioned_role[3:-1]
+        print(f"Getting members from role: {roles_dict[mentioned_role]}!")
+
+        role_members = {}
+        if roles_dict[mentioned_role] == "@everyone":
+            for member in ctx.channel.parent.members:
+                role_members[str(member.name)] = str(member.id)
+        else:
+            for role in roles:
+                if str(role.id) == mentioned_role:
+                    for member in role.members:
+                        role_members[str(member.name)] = str(member.id)
+        return role_members
+    
+    "Helper function to shadow ping all members mentioned in the role to the thread"
+    async def add_to_thread(ctx, arg):
+        role_members = await get_members(ctx, arg)
+        remind_members = []
+        for member in role_members.keys():
+            if role_members[member] != str(bot.user.id):
+                remind_members.append(f"<@{role_members[member]}>")
+        print(f"Adding members to thread: {' '.join(remind_members)}")
+        add_msg = f"Adding to thread: {' '.join(remind_members)}"
+        await ctx.send(add_msg, delete_after=1)
 
     "Helper function to get a list of role objects in a guild"
     async def get_roles(ctx):
