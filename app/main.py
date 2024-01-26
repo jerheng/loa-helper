@@ -140,13 +140,6 @@ def run():
                         inline=True
                     )
 
-                    # embed.add_field(
-                    #     name="",
-                    #     value="\n".join(f"{key}: {len(react_dict[key])}/{len(user_set)}" for key in react_dict.keys()),
-                    #     inline=False
-                    # )
-
-                    # Check if all members have reacted, otherwise build remind_members to then ping in the message with the embed.
                     if remind_members != []:
                         for i in range(len(remind_members)):
                             remind_members[i] = f"<@{remind_members[i]}>"
