@@ -162,7 +162,7 @@ def run():
                 break
 
 
-    "Bunch of helper functions below...."
+    "Bunch of helper functions below.............."
 
 
     "Helper function to collect reactions from a prior schedule message."
