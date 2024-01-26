@@ -45,6 +45,7 @@ python3 app/main.py
 /schedule [role] 
 * Calls upon the bot to schedule a raid, pinging members who are either part of the role if a valid role is passed as an argument with the command call, otherwise pinging everyone who is able to view the channel/thread
 * Auto-pins the schedule message for members to keep track easily.
+* Auto-adds members to thread by ghost-pinging to attach them to the thread for visibility
 
 /gen 
 * Looks up the latest schedule message called in the channel/thread where /gen is called, and tabulates the availability of all raid members as shown below, while reminding members who have yet to react to the message.
