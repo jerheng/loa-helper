@@ -5,6 +5,8 @@ load_dotenv()
 
 DISCORD_API_SECRET = os.getenv("DISCORD_API_TOKEN")
 
+mongo_uri = os.getenv("MONGO_URI") # Setup using Mongodb Atlas to save on storage with their free tier
+
 # Get emoji id from \:emojiname: and it'll appear accordingly
 # Edit the emojis to follow the ones on your server for more stability and control!
 emojis = [

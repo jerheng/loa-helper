@@ -1,9 +1,18 @@
 import settings
 import discord
+import typing   
 from discord.ext import commands
+from discord import app_commands, Interaction
 from datetime import datetime
 import pandas as pd
+from pymongo import MongoClient
 
+# Replace the following with your MongoDB connection string
+client = MongoClient(settings.mongo_uri) # Importing mongo_uri from settings, hidden file in dotenv
+
+# Select the database and collection
+db = mongo_client["loa-helper"]
+collection = db["events"]
 
 def run():
     intents = discord.Intents.default()
@@ -21,37 +30,70 @@ def run():
         print("-" * 15)
 
     # /schedule
-    @bot.command(
-        brief="Collating available days for raid attendance",
-        description="Bot sends a message into a location where command is called and tags @everyone, asking to react for available days to be scheduled for raids.\nThis is generally recommended to be run in threads to not clog chats and ping people in excess since it uses @everyone.",
+@bot.command(
+    brief="Collating available days for raid attendance",
+    description="Bot sends a message into a location where command is called and tags @everyone, asking to react for available days to be scheduled for raids.\nThis is generally recommended to be run in threads to not clog chats and ping people in excess since it uses @everyone.",
+)
+async def schedule(ctx, arg="@everyone"):
+    print(
+        f"Command /schedule has been called by {ctx.message.author}({ctx.message.author.id}) in {ctx.guild.name}({ctx.guild.id}), channel {ctx.channel}({ctx.channel.id}) at {datetime.now()}"
     )
-    async def schedule(ctx, arg="@everyone"):
-        print(
-            f"Command /schedule has been called by {ctx.message.author}({ctx.message.author.id}) in {ctx.guild.name}({ctx.guild.id}), channel {ctx.channel}({ctx.channel.id}) at {datetime.now()}"
-        )
 
-        # Check if the argument provided is a valid role, otherwise tag everyone
-        roles = await get_roles(ctx)
-        if arg.startswith("<@&") and arg.endswith(">"):
-            arg_id = arg[3:-1].strip()
-            # print(arg_id)
-            for role in roles:
-                if str(role.id) == arg_id:
-                    break
-        else:
-            arg = "@everyone"
-        await ctx.message.delete()
+    # Check if the argument provided is a valid role, otherwise tag everyone
+    roles = await get_roles(ctx)
+    if arg.startswith("<@&") and arg.endswith(">"):
+        arg_id = arg[3:-1].strip()
+        for role in roles:
+            if str(role.id) == arg_id:
+                break
+    else:
+        arg = "@everyone"
+    await ctx.message.delete()
 
-        # Check if arg is a valid prefix for a role, otherwise make sure it is set to everyone. It has to be a valid role.
-        emojis = settings.emojis
-        msg = await ctx.send(f"{arg}, please react with your available days!")
-        for emoji in emojis:
-            await msg.add_reaction(emoji)
-        await msg.pin(reason=None)
+    # Check if arg is a valid prefix for a role, otherwise make sure it is set to everyone. It has to be a valid role.
+    emojis = settings.emojis
+    msg = await ctx.send(f"{arg}, please react with your available days!")
 
-        print(f"Role mentioned is: {arg}")
-        #shadow ping members to add them to the thread
-        await add_to_thread(ctx, arg)
+    # Update prior scheduling messages to expired
+    collection.update_many(
+        {"channel_id": ctx.channel.id, "status": "Scheduling"},
+        {"$set": {"status": "Expired"}}
+    )
+    print(f"Prior schedules in channel {ctx.channel.id} set to 'Expired'.")
+
+    # Save new message details to MongoDB
+    message_data = {
+        "message_id": msg.id,
+        "content": msg.content,
+        "channel_id": msg.channel.id,
+        "channel_name": msg.channel.name,
+        "guild_id": msg.guild.id,
+        "guild_name": msg.guild.name,
+        "author_id": ctx.message.author.id,
+        "author_name": ctx.message.author.name,
+        "command_user_id": ctx.author.id,
+        "command_user_name": ctx.author.name,
+        "arguments": arg,
+        "timestamp": msg.created_at.isoformat(),
+        "status": "Scheduling"  # Possible statuses as ["Scheduling", "Expired"]
+    }
+    collection.insert_one(message_data)
+    print(f"New message saved to MongoDB with ID: {msg.id}")
+
+    for emoji in emojis:
+        await msg.add_reaction(emoji)
+    await msg.pin(reason=None)
+
+    print(f"Role mentioned is: {arg}")
+    # Shadow ping members to add them to the thread
+    await add_to_thread(ctx, arg)
+    
+    @schedule.autocomplete("role")
+    async def schedule_autocomplete(ctx, interaction: discord.Interaction, current: str) -> typing.List[app_commands.choice[str]]:
+        data = []
+        for role in await get_roles(ctx):
+            data.append(app_commands.Choice(name=role, value=role))
+        return data
 
     # /gen
     @bot.command(
@@ -76,90 +118,163 @@ def run():
 
         flag = False  # Flag to keep track of whether the message has been found.
 
-        # Set oldest_first = False so that we only keep track of the latest schedule collate
-        print("Searching messages now:")
-        async for message in ctx.channel.history(oldest_first=False, limit = 500):
-            # print(message)
-            # Delete command initialization message
-            if message.author.bot:
-                # print(message.content)
-                if message.content.endswith("please react with your available days!"):
-                    print("Message found")
-                    mentioned_role = str(message.content).strip().split()[0][:-1]
-                    role_members = await get_members(ctx, mentioned_role)
+        latest_request = collection.find_one(
+            {"channel_id":ctx.channel.id},
+            sort = [("timestamp, -1")]
+        ) # Status here is irreelvant
 
-                    flag = True  # Latest schedule message has been found
+        if latest_request:
+            print(f"Latest schedule request found with message ID: {latest_request['message_id']}")
+            try:
+                message = await ctx.channel.fetch_mesasge(latest_request["message_id"])
+            except discord.NotFound:
+                print("Message not found in the channel")
+                return
+            mentioned_role = str(latest_request["content"]).strip().split()[0][:-1]
+            role_members = await get_members(ctx, mentioned_role)
+            
+            user_set, react_dict = await collate_table(message)
 
-                    user_set, react_dict = await collate_table(message)
+            #diff check for user_set and role_members
+            remind_members = []
+            for member in role_members.keys():
+                if member not in user_set:
+                    if role_members[member] != str(bot.user.id):
+                        remind_members.append(role_members[member])
+            print(f"Reminding the following members: {remind_members}")
 
-                    # now do a diff check for user_set and role_members
-                    remind_members = [] # remind_members is initialized here to check if all members in user_set are in the pinged role, otherwise collect members who have yet to react.
-                    for member in role_members.keys():
-                        if member not in user_set:
-                            if role_members[member] != str(bot.user.id):
-                                remind_members.append(role_members[member])
-                    print(f"Reminding the following members: {remind_members}")
+            # Convert react_dict into a user that converts the reactions into green squares and non-reactions into red-squares
+            conv = conv_dict(user_set, react_dict)
 
-                    # Convert react_dict into a user that converts the reactions into green squares and non-reactions into red-squares
-                    conv = conv_dict(user_set, react_dict)
+            #Initialize table
+            table = []
+            headers = settings.headers
+            table.append(headers)
+            for item in conv.items():
+                table.append([item[0]] + list(item[1]))
+    
+            # Convert table into dataframe to easily pick up column data.
+            df = pd.DataFrame(table[1:], columns=table[0])
 
-                    # initialize table
-                    table = []
-                    headers = settings.headers
-                    table.append(headers)
-                    for item in conv.items():
-                        table.append([item[0]] + list(item[1]))
+            # Print for debugging
+            for header in headers:
+                print(header, list(df[header]))
 
-                    # Get count of users who reacted per emote
-                    # tmp = ["Total"] + [str(len(react_dict[key])) for key in react_dict.keys()]
-                    # table.append(tmp)
+            server_emojis = list(react_dict.keys())
 
-                    print(table)
+            # Building embeds
+            embed = discord.Embed(title=f"Schedule {message.jump_url}")
 
-                    # convert table into dataframe to easily pickup column data.
-                    df = pd.DataFrame(table[1:], columns=table[0])
+            embed.add_field(
+                name=headers[0],
+                value="\n".join(list(df[headers[0]])),
+                inline=True
+            )
 
-                    # print for debugging
-                    for header in headers:
-                        print(header, list(df[header]))
+            embed.add_field(
+                name="\u2800".join(server_emojis),
+                value="\n".join("\u2800".join(row[1:]) for row in table[1:]),
+                inline=True
+            )
 
-                    server_emojis = list(react_dict.keys())
-
-                    # building embeds
-                    embed = discord.Embed(title=f"Schedule {message.jump_url}")
-
-                    embed.add_field(
-                        name=headers[0],
-                        value="\n".join(list(df[headers[0]])),
-                        inline=True
-                    )
-
-                    embed.add_field(
-                        name="\u2800".join(server_emojis),
-                        value="\n".join("\u2800".join(row[1:]) for row in table[1:]),
-                        inline=True
-                    )
-
-                    if remind_members != []:
-                        for i in range(len(remind_members)):
-                            remind_members[i] = f"<@{remind_members[i]}>"
-                        reminder = f"Reminding: {' '.join(remind_members)}"
-                    else:
-                        reminder = ""
-
-                    if reminder == "":
-                        await ctx.send(embed=embed) # no members to remind, embed only
-                    else:
-                        # await ctx.send(reminder, embed=embed) # reminder + embed
-                        await ctx.send(reminder, embed=embed)
-                else:
-                    pass  # Nothing should happen here
+            if remind_members:
+                remind_members = [f"<@{member}>" for member in remind_members]
+                reminder = f"Reminding: {' '.join(remind_members)}"
             else:
-                pass  # Nothing should happen here
-            if (
-                flag == True
-            ):  # Latest message containing schedule has been found, break from the loop.
-                break
+                reminder = ""
+
+            if reminder:
+                await ctx.send(reminder, embed=embed)  # Reminder + embed
+            else:
+                await ctx.send(embed=embed)  # Embed only
+        else:
+            print("No active scheduling found in the channel.")
+            await ctx.send("No active scheduling found in this channel.")
+            
+        # Set oldest_first = False so that we only keep track of the latest schedule collate
+        # print("Searching messages now:")
+        # async for message in ctx.channel.history(oldest_first=False, limit = 500):
+        #     # print(message)
+        #     # Delete command initialization message
+        #     if message.author.bot:
+        #         # print(message.content)
+        #         if message.content.endswith("please react with your available days!"):
+        #             print("Message found")
+        #             mentioned_role = str(message.content).strip().split()[0][:-1]
+        #             role_members = await get_members(ctx, mentioned_role)
+
+        #             flag = True  # Latest schedule message has been found
+
+        #             user_set, react_dict = await collate_table(message)
+
+        #             # now do a diff check for user_set and role_members
+        #             remind_members = [] # remind_members is initialized here to check if all members in user_set are in the pinged role, otherwise collect members who have yet to react.
+        #             for member in role_members.keys():
+        #                 if member not in user_set:
+        #                     if role_members[member] != str(bot.user.id):
+        #                         remind_members.append(role_members[member])
+        #             print(f"Reminding the following members: {remind_members}")
+
+        #             # Convert react_dict into a user that converts the reactions into green squares and non-reactions into red-squares
+        #             conv = conv_dict(user_set, react_dict)
+
+        #             # initialize table
+        #             table = []
+        #             headers = settings.headers
+        #             table.append(headers)
+        #             for item in conv.items():
+        #                 table.append([item[0]] + list(item[1]))
+
+        #             # Get count of users who reacted per emote
+        #             # tmp = ["Total"] + [str(len(react_dict[key])) for key in react_dict.keys()]
+        #             # table.append(tmp)
+
+        #             print(table)
+
+        #             # convert table into dataframe to easily pickup column data.
+        #             df = pd.DataFrame(table[1:], columns=table[0])
+
+        #             # print for debugging
+        #             for header in headers:
+        #                 print(header, list(df[header]))
+
+        #             server_emojis = list(react_dict.keys())
+
+        #             # building embeds
+        #             embed = discord.Embed(title=f"Schedule {message.jump_url}")
+
+        #             embed.add_field(
+        #                 name=headers[0],
+        #                 value="\n".join(list(df[headers[0]])),
+        #                 inline=True
+        #             )
+
+        #             embed.add_field(
+        #                 name="\u2800".join(server_emojis),
+        #                 value="\n".join("\u2800".join(row[1:]) for row in table[1:]),
+        #                 inline=True
+        #             )
+
+        #             if remind_members != []:
+        #                 for i in range(len(remind_members)):
+        #                     remind_members[i] = f"<@{remind_members[i]}>"
+        #                 reminder = f"Reminding: {' '.join(remind_members)}"
+        #             else:
+        #                 reminder = ""
+
+        #             if reminder == "":
+        #                 await ctx.send(embed=embed) # no members to remind, embed only
+        #             else:
+        #                 # await ctx.send(reminder, embed=embed) # reminder + embed
+        #                 await ctx.send(reminder, embed=embed)
+        #         else:
+        #             pass  # Nothing should happen here
+        #     else:
+        #         pass  # Nothing should happen here
+        #     if (
+        #         flag == True
+        #     ):  # Latest message containing schedule has been found, break from the loop.
+        #         break
 
 
     "Bunch of helper functions below.............."
