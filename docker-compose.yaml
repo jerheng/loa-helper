@@ -1,9 +1,13 @@
 version: '3.8'
 
 services:
-  myapp:
+  loa-helper:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: loa-helper
     restart: always
+    env_file:
+      - .env
+    volumes:
+      - .:/app
