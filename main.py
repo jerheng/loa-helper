@@ -7,6 +7,9 @@ import settings
 class LoaHelperBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
+        intents.messages = True
+        intents.reactions = True    
+        intents.guilds = True
         intents.message_content = True
         intents.members = True
         super().__init__(command_prefix="/", intents=intents)
