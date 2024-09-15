@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  loa-helper:
+  loa-helper-latest:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: loa-helper
+    container_name: loa-helper-latest
     restart: always
     env_file:
       - .env
