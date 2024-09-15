@@ -2,7 +2,10 @@ import discord
 from discord.ext import commands
 from cogs.schedule import Schedule
 from cogs.gen import Gen
+from cogs.remind import Remind
 import settings
+
+SYNC = False
 
 class LoaHelperBot(commands.Bot):
     def __init__(self):
@@ -17,11 +20,26 @@ class LoaHelperBot(commands.Bot):
     async def setup_hook(self):
         await self.add_cog(Schedule(self))
         await self.add_cog(Gen(self))
+        await self.add_cog(Remind(self))
+        print("Cogs Loaded")
 
     async def on_ready(self):
         print(f"Bot is ready! Logged in as {self.user}")
         print(f"Bot is in {len(self.guilds)} guilds")
-        await self.tree.sync()
+        if SYNC:
+            try:
+                await self.tree.sync()
+                print("Synced commands globally")
+                
+                # Print all registered commands
+                commands = await self.tree.fetch_commands()
+                print("Registered commands:")
+                for command in commands:
+                    print(f"- {command.name}")
+            except Exception as e:
+                print(f"Failed to sync commands globally: {e}")
+        else:
+            print("Skipping command sync")
 
 def run():
     bot = LoaHelperBot()

@@ -12,6 +12,7 @@ class Schedule(commands.Cog):
         self.mongo_client = MongoClient(settings.MONGO_URI)
         self.db = self.mongo_client["loa-helper"]
         self.collection = self.db["events"]
+        print("Schedule cog has been loaded")
 
     @app_commands.command(name="schedule", description="Create a new schedule for raid attendance")
     @app_commands.describe(role="The role to mention (optional, defaults to @everyone)")
@@ -84,60 +85,6 @@ class Schedule(commands.Cog):
             app_commands.Choice(name=role, value=role)
             for role in roles if current.lower() in role.lower()
         ][:25]  # Discord limits to 25 choices
-
-    @app_commands.command(name="remind", description="Remind everyone in the active thread to react")
-    async def remind(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-        latest_schedule = self.collection.find_one(
-            {"channel_id": interaction.channel.id, "status": "Active"},
-            sort=[("timestamp", -1)]
-        )
-
-        if not latest_schedule:
-            await interaction.followup.send("No active scheduling found in this channel.")
-            return
-
-        try:
-            message = await interaction.channel.fetch_message(latest_schedule["message_id"])
-        except discord.NotFound:
-            await interaction.followup.send("The scheduled message was not found.")
-            return
-
-        # Collect users who have already reacted
-        reacted_users = set()
-        print(f"Original reacted userset: {reacted_users}")
-        for reaction in message.reactions:
-            async for user in reaction.users():
-                if user != self.bot.user:
-                    reacted_users.add(user)
-        print(f"Reacted userset: {reacted_users}")
-
-        # Get the role mentioned in the schedule
-        role_name = latest_schedule.get("role", "@everyone")
-        if role_name == "@everyone":
-            if isinstance(interaction.channel, discord.Thread):
-                role_members = interaction.channel.parent.members
-            elif isinstance(interaction.channel, discord.TextChannel):
-                role_members = interaction.channel.members
-            else:
-                await interaction.followup.send("This command can only be used in text channels or threads.")
-                return
-        else:
-            guild_role = discord.utils.get(interaction.guild.roles, name=role_name)
-            role_members = guild_role.members if guild_role else []
-
-        # Filter out bots from role_members
-        role_members = [member for member in role_members if not member.bot]
-        print(f"Role members after bot filter: {role_members}")
-
-        # Mention users who have not reacted yet and are part of the role
-        non_reacted_users = [member.mention for member in role_members if member not in reacted_users]
-        print(f"Non-reacted users: {non_reacted_users}")
-        if non_reacted_users:
-            await interaction.followup.send(f"Reminder to react: {', '.join(non_reacted_users)}")
-        else:
-            await interaction.followup.send("Everyone has already reacted.")
 
 async def add_to_thread(thread: discord.Thread, role_members: List[discord.Member], bot_user_id: int):
     remind_members = [member.mention for member in role_members if member.id != bot_user_id]
